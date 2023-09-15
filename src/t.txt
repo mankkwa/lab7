@@ -1,0 +1,4 @@
+save
+help
+execute_script
+C:\Users\mankk\lab5\src\m.txt

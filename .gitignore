@@ -1,0 +1,4 @@
+collection.json
+# Project exclude paths
+/lab/.gradle/
+/out/
