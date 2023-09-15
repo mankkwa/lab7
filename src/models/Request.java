@@ -5,6 +5,8 @@ import com.google.gson.Gson;
 public class Request {
 
     private String message;
+    private String data;
+    private String action;
 
     public Request(String message) {
         this.message = message;
@@ -21,4 +23,5 @@ public class Request {
     public String getMessage() {
         return message;
     }
+
 }

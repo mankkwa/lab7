@@ -7,37 +7,66 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 
 public class Server {
+    private static final int PORT = 8081;
 
     public void start() throws IOException {
         try {
-                ServerSocket serverSocket = new ServerSocket(8081);
-                System.out.println("Сервер запущен и ожидает подключения клиента...");
+            // Создание ServerSocketChannel и его привязка к определенному порту
+            ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+            serverSocketChannel.socket().bind(new InetSocketAddress(PORT));
+            System.out.println("Сервер запущен, прослушиваю порт: " + PORT);
 
-                Socket clientSocket = serverSocket.accept();
-                System.out.println("Клиент подключился.");
+            while (true) {
+                // Принятие входящего подключения от клиента
+                SocketChannel socketChannel = serverSocketChannel.accept();
+                System.out.println("Клиент подключен.");
+                // Обработка запроса от клиента
+                handleClient(socketChannel);
+            }
 
-                BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-                PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
-                String inputLine;
-                while ((inputLine = in.readLine()) != null) {
-                    Request request = Request.fromJson(inputLine);
-                    System.out.println("Сервер получил сообщение: " + request.getMessage());
-                    String message = "Привет от сервера!";
-                    Response response = new Response(message);
-                    String jsonResponse = response.toJson();
-                    out.println(jsonResponse);
-                    System.out.println("Сервер отправил ответ: " + jsonResponse);
-                }
-                in.close();
-                out.close();
-                clientSocket.close();
-                serverSocket.close();
-        }catch (IOException e){
-            System.err.println(e.getMessage());
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
-}
+
+    //метод для обработки входящих сообщений от клиента
+    private static void handleClient(SocketChannel socketChannel) throws IOException {
+        //создаем буфер размером в 1024 байта
+        ByteBuffer buffer = ByteBuffer.allocate(1024);
+
+        // read(buffer) читает данные из канала и записывает их в буфер
+        // количество возвращаемых байтов - bytesRead
+        int bytesRead = socketChannel.read(buffer);
+        if (bytesRead == -1) {
+            socketChannel.close();
+            return;
+        }
+
+        //преобразуем данные из буффера в строку, чтобы сформировать джсон
+        String requestJson = new String(buffer.array(), 0, bytesRead);
+        //преобразовываем в реквест
+        Request request = Request.fromJson(requestJson);
+        System.out.println("Сервер получил сообщение: " + request.getMessage());
+
+        // Обработка запроса и отправка ответа
+        String responseData = "Привет от сервера!";
+        Response response = new Response("success", responseData);
+
+        // Отправка ответа клиенту
+        String responseJson = response.toJson(); //преобразуем ответ
+        ByteBuffer responseBuffer = ByteBuffer.wrap(responseJson.getBytes()); //оборачиваем в байтовый буфер
+        socketChannel.write(responseBuffer); //отправляем обратно клиенту
+
+        // Закрытие канала
+        socketChannel.close();
+    }
+
+    }
