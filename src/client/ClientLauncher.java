@@ -1,27 +1,26 @@
 package client;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import other.MessageManager;
+import other.exceptions.WrongArgumentException;
 import server.dao.PriorityQueueDAO;
 
+import java.lang.reflect.Field;
+import java.time.ZonedDateTime;
+
 public class ClientLauncher {
-
-    public static void main(String[] args) throws Exception {
-        Client client = new Client();
-        client.start();
-        /*
-        PriorityQueueDAO pqd = new PriorityQueueDAO();
-        String output = null;
-        try {
-            output = args[0];
-        } catch (ArrayIndexOutOfBoundsException e) {
-            System.err.println("Информация о аргументе командной строки отсутствует. Работа прекращена.");
-            System.exit(0);
-        }
-
-        pqd.readCollection(output);
-        AskIn.chooseFriendly();
+    public static final Logger log = LogManager.getLogger(ClientLauncher.class.getName());
+    public static void main(String[] args) throws WrongArgumentException {
+        String ServerHost = "localhost";
+        int ServerPort = 65100;
+        // Новый клиент
+        Client client = new Client(ServerHost, ServerPort);
+        // Включение считывание с консоли
         ReaderManager.turnOnConsole();
-        CommandManager.whichCommand(output);
-        */
-
+        // Запрос на включение дружественного интерфейса
+        new MessageManager().turnOnFriendly();
+        //Запускаем логику клиента
+        client.start();
     }
 }

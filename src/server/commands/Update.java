@@ -1,7 +1,7 @@
 package server.commands;
 
 import server.dao.DAO;
-import models.Organization;
+import other.models.Organization;
 
 /**
  * Команда упдате - обновить значение элемента коллекции
@@ -15,19 +15,17 @@ public class Update implements Command {
     }
 
     @Override
-    public void execute(Object newObject) {
+    public Object execute(Object newObject) {
         Organization org = (Organization) newObject;
         //тут вроде мы получаем айди переданного сюда org и если он null, то элемент не будет обновлен
         //в ином случае - обновлен
-        try {
-            if (priorityQueueDAO.get(org.getId()) != null){
+        if (priorityQueueDAO.get(org.getId()) != null){
+                newObject = null;
                 priorityQueueDAO.update(org.getId(), org);
                 priorityQueueDAO.sort();
-                System.out.print("Элемент обновлён :)\n");
-            }
-        } catch (NullPointerException e){
-            System.err.println(e.getMessage());
+        }else {
+            newObject = ("Элемента с таким id не нашлось.\n");
         }
-
+        return newObject;
     }
 }

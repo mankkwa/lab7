@@ -1,4 +1,4 @@
-package models;
+package other.models;
 
 public class Location {
     private Double x; //Поле не может быть null

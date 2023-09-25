@@ -2,26 +2,25 @@ package server.dao;
 
 import server.FileManager;
 import server.OrganizationComparator;
-import models.Organization;
+import other.models.Organization;
 
-import java.io.FileWriter;
-import java.io.IOException;
+import java.lang.reflect.Field;
 import java.time.ZonedDateTime;
 import java.util.*;
 
 public final class PriorityQueueDAO implements DAO {
-    private static PriorityQueueDAO pqd = new PriorityQueueDAO();
-    private static PriorityQueue<Organization> collection = new PriorityQueue<>();
+    private PriorityQueue<Organization> collection = new PriorityQueue<>();
     private static Long availableId = 0L;
-    private final ZonedDateTime initDate;
-    private static OrganizationComparator orgComp;
+    private static PriorityQueueDAO pqd;
+    private ZonedDateTime initDate;
 
-    public PriorityQueueDAO(){
+
+    public PriorityQueueDAO(PriorityQueue<Organization> collection){
+        this.collection = collection;
         initDate = ZonedDateTime.now();
-        //pqd.readCollection();
+        setAvailableId();
     }
 
-    @Override
     public ZonedDateTime getInitDate(){
         return initDate;
     }
@@ -96,47 +95,29 @@ public final class PriorityQueueDAO implements DAO {
         return collection.size();
     }
 
-    @Override
-    public Long getAvailableId(){
-        return availableId;
-    }
 
     @Override
-    public Collection<Organization> show() {
+    public String show() {
         if (collection.isEmpty()) return null;
-        return (pqd.getAll());
+        return collection.stream().reduce("", (sum, m) -> sum += m + "\n\n", (sum1, sum2) -> sum1 + sum2).trim();
     }
 
     @Override
     public void sort(){
         Organization[] organizations = collection.toArray(new Organization[0]);
-        Arrays.sort(organizations, orgComp);
+        Arrays.sort(organizations, new OrganizationComparator());
         collection.clear();
         collection.addAll(Arrays.asList(organizations));
     }
 
     @Override
-    public void saveCollectionToFile(String output) {
-        try (FileWriter writer = new FileWriter(output)) {
-            // Очистить файл, записывая пустую строку
-            writer.write("");
-        FileManager.writeCollection(pqd.getAll(), output);
-    } catch (IOException e) {
-            e.printStackTrace();
-        }
+    public void save() {
+        FileManager.writeCollection(collection);
     }
 
-    @Override
-    public void readCollection(String input){
-        collection = FileManager.readCollection(input);
-    }
 
     public void removeGreater(Organization organization) {
-        for (Organization organization1 : pqd.getAll()) {
-            if (organization1.compareTo(organization) > 0) {
-                pqd.remove(organization1.getId());
-            }
-        }
+        collection.removeIf(organization1 -> organization1.compareTo(organization) > 0);
     }
 
     public Organization firstOrganization(){

@@ -1,4 +1,4 @@
-package models;
+package other.models;
 
 public class Address {
     private String street; //Поле не может быть null

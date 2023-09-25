@@ -1,4 +1,4 @@
-package models;
+package other.models;
 
 
 import java.time.ZonedDateTime;
@@ -13,6 +13,7 @@ public class Organization implements Comparable<Organization>{
     private Integer employeesCount; //Поле не может быть null, Значение поля должно быть больше 0
     private OrganizationType type; //Поле не может быть null
     private Address postalAddress; //Поле не может быть null
+
 
     public Organization(String name, Coordinates coordinates, Float annualTurnover, String fullName, Integer employeesCount, OrganizationType type, Address postalAddress) {
         this.name = name;

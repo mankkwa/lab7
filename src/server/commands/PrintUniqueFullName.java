@@ -1,17 +1,23 @@
 package server.commands;
 
+import server.dao.DAO;
 import server.dao.PriorityQueueDAO;
-import models.Organization;
+import other.models.Organization;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class PrintUniqueFullName implements Command{
-    private PriorityQueueDAO pqd = new PriorityQueueDAO();
+    private final DAO pqd;
+
+    public PrintUniqueFullName(DAO pqd){
+        this.pqd = pqd;
+    }
 
     @Override
-    public void execute(Object obj) {
+    public Object execute(Object obj) {
         List<String> uniqueFullName = new ArrayList<String>();
+        if (pqd.size() != 0) {
         for(Organization organization: pqd.getAll()) {
             String fullName = organization.getFullName();
             if(!uniqueFullName.contains(fullName)) {
@@ -22,6 +28,10 @@ public class PrintUniqueFullName implements Command{
         }
         for(String field: uniqueFullName) {
             System.out.println(field);
+        }
+        return obj;
+    } else {
+            return "Коллекция пустая.";
         }
     }
 }

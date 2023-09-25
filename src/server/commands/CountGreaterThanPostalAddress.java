@@ -1,14 +1,19 @@
 package server.commands;
 
+import server.dao.DAO;
 import server.dao.PriorityQueueDAO;
-import models.Address;
-import models.Organization;
+import other.models.Address;
+import other.models.Organization;
 
 public class CountGreaterThanPostalAddress implements Command{
-    private PriorityQueueDAO pqd = new PriorityQueueDAO();
+    private final DAO pqd;
+
+    public CountGreaterThanPostalAddress(DAO pqd) {
+        this.pqd = pqd;
+    }
 
     @Override
-    public void execute(Object obj) {
+    public Object execute(Object obj) {
         Organization organization = (Organization) obj;
         Address postalAddress = organization.getPostalAddress();
         int i = 0;
@@ -20,8 +25,9 @@ public class CountGreaterThanPostalAddress implements Command{
                 }
             }
             System.out.println("Количество элементов, превышающих postalAddress равно: " + i);
+            return obj;
         } catch (NullPointerException e){
-            System.err.println("count_greater_than_postal_address: Ничего найти не удалось :(");
+            return ("count_greater_than_postal_address: Ничего найти не удалось :(");
         }
     }
 }

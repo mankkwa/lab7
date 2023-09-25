@@ -1,23 +1,23 @@
 package server.commands;
 
+import server.dao.DAO;
 import server.dao.PriorityQueueDAO;
-import models.Organization;
+import other.models.Organization;
 
 public class RemoveGreater implements Command{
-    private PriorityQueueDAO pqd = new PriorityQueueDAO();
+    private final DAO pqd;
+    public RemoveGreater(DAO pqd) {
+        this.pqd = pqd;
+    }
 
     @Override
-    public void execute(Object obj) {
+    public Object execute(Object obj) {
         Organization organizationFind = (Organization) obj;
-        try {
-            if (!pqd.getAll().contains(organizationFind)){
-                pqd.add(organizationFind);
-            }
+        if (!(pqd.size() == 0)) {
             pqd.removeGreater(organizationFind);
-            pqd.sort();
-            System.out.println("Удаление прошло успешно!");
-        } catch (NullPointerException e){
-            System.out.println("remove_greater: Удаление не удалось.");
+            return null;
+        } else {
+            return ("Коллекция пуста.");
         }
 
     }

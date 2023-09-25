@@ -1,21 +1,23 @@
 package server.commands;
 
+import server.dao.DAO;
 import server.dao.PriorityQueueDAO;
-import models.Organization;
+import other.models.Organization;
 
 public class RemoveById implements Command{
-    private PriorityQueueDAO dao = new PriorityQueueDAO();
+    private final DAO dao;
+
+    public RemoveById(DAO dao){
+        this.dao = dao;
+    }
     @Override
-    public void execute(Object obj) {
+    public Object execute(Object obj) {
         Organization org = (Organization) obj;
-        try{
-            if(dao.get(org.getId()) != null) {
-                dao.remove(org.getId());
-                dao.sort();
-                System.out.println("Элемент был удален!");
-            }
-        } catch (NullPointerException e){
-            System.err.println(e.getMessage());
+        if (dao.get(org.getId()) != null) {
+            dao.remove(org.getId());
+            return null;
+        } else {
+            return "Человека с таким id не существует!";
         }
 
     }

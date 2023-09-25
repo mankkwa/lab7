@@ -1,4 +1,4 @@
-package models;
+package other.models;
 
 public enum OrganizationType {
     PUBLIC,

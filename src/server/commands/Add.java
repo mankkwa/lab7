@@ -1,21 +1,23 @@
 package server.commands;
 
-import models.*;
+import other.models.Organization;
 import server.dao.*;
 
 /**
  * Команда add - добавляем элемент в коллекцию
  */
 public class Add implements Command {
-        private static final DAO priorityQueueDAO = new PriorityQueueDAO();
+    private final DAO priorityQueueDAO;
+
+    public Add(DAO priorityQueueDAO) {
+        this.priorityQueueDAO = priorityQueueDAO;
+    }
 
     @Override
-    public void execute (Object newObject) {
+    public Object execute (Object newObject) {
         Organization org = (Organization) newObject;
-        if (org != null) {
-            priorityQueueDAO.add(org);
-            priorityQueueDAO.sort();
-            System.out.println("Элемент добавлен в коллекцию!");
-        }
+        priorityQueueDAO.add(org);
+        priorityQueueDAO.sort();
+        return null;
     }
 }

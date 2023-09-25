@@ -1,17 +1,23 @@
 package server.commands;
 
+import server.dao.DAO;
 import server.dao.PriorityQueueDAO;
 
 public class RemoveFirst implements Command{
-    private PriorityQueueDAO pqd = new PriorityQueueDAO();
+    private final DAO pqd;
+
+    public RemoveFirst(DAO pqd){
+        this.pqd = pqd;
+    }
+
     @Override
-    public void execute(Object obj) {
+    public Object execute(Object obj) {
         if (pqd.size() != 0) {
             pqd.remove(pqd.firstOrganization().getId());
             pqd.sort();
-            System.out.println("Первый элемент удален.");
+            return ("Первый элемент удален.");
         } else {
-            System.err.println("Коллекция пуста!");
+            return ("Коллекция пуста!");
         }
     }
 }

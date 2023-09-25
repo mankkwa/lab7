@@ -1,9 +1,12 @@
 package server.commands;
 
+import server.dao.PriorityQueueDAO;
+
 public class Help implements Command{
+
     @Override
-    public void execute(Object obj) {
-        System.out.print("Список команд:\n" +
+    public Object execute(Object obj) {
+        return"Список команд:\n" +
                 "• help : вывести справку по доступным командам\n" +
                 " • info : вывести в стандартный поток вывода информацию о коллекции (тип, дата инициализации, количество элементов и т.д.)\n" +
                 " • show : вывести в стандартный поток вывода все элементы коллекции в строковом представлении\n" +
@@ -19,6 +22,6 @@ public class Help implements Command{
                 " • remove_greater {element} : удалить из коллекции все элементы, превышающие заданный\n" +
                 " • average_of_annual_turnover : вывести среднее значение поля annualTurnover для всех элементов коллекции\n" +
                 " • count_greater_than_postal_address postalAddress : вывести количество элементов, значение поля postalAddress которых больше заданного\n" +
-                " • print_unique_full_name : вывести уникальные значения поля fullName всех элементов в коллекции\n");
+                " • print_unique_full_name : вывести уникальные значения поля fullName всех элементов в коллекции\n";
     }
 }

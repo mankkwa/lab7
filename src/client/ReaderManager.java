@@ -3,8 +3,10 @@ package client;
 import client.handlers.ConsoleInputHandler;
 import client.handlers.FileInputHandler;
 import client.handlers.InputHandler;
+import other.MessageManager;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.util.ArrayList;
 
 public class ReaderManager {
@@ -16,24 +18,26 @@ public class ReaderManager {
     }
 
     public static void turnOnConsole() {
+        // новый экземпляр класса считывания
         handler = new ConsoleInputHandler();
+        // добавляем в массив хендлеров, чтобы потом к нему вернуться
         handlers.add(handler);
-        AskIn.returnFriendly();
-    }
-
-    public static void removeLast() {
-        handlers.remove(handlers.size() - 1);
+        // Возврат к дружественному интерфейсу после считывания с файла, если оно было
+        MessageManager.returnFriendly();
+        // Добавляем косоль в список активных вкладок приложения
+        MessageManager.getFileHistory().add("Console");
     }
 
     public static void returnOnPreviousReader() {
+        handlers.remove(handlers.size() - 1);
         handler = handlers.get(handlers.size()-1);
-        AskIn.returnFriendly();
+        MessageManager.returnFriendly();
     }
 
-    public static void turnOnFile(BufferedInputStream reader) {
+    public static void turnOnFile(BufferedReader reader) {
         handler = new FileInputHandler(reader);
         handlers.add(handler);
-        AskIn.turnOffFriendly();
+        MessageManager.turnOffFriendly();
     }
 
 }

@@ -1,7 +1,8 @@
 package server.dao;
 
-import models.Organization;
+import other.models.Organization;
 
+import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.util.Collection;
 
@@ -13,10 +14,11 @@ public interface DAO {
     Organization get(Long id);
     Collection<Organization> getAll();
     int size();
-    Long getAvailableId();
-    Collection<Organization> show();
-    ZonedDateTime getInitDate();
+    String show();
     void sort();
-    void readCollection(String o);
-    void saveCollectionToFile(String o);
+    void setAvailableId();
+    Float averageOfAnnual();
+    Organization firstOrganization();
+    void removeGreater(Organization organization);
+    void save() throws IOException;
 }

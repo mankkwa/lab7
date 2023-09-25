@@ -1,487 +1,451 @@
 package client;
 
-import client.CommandType;
-import client.handlers.ConsoleInputHandler;
-import client.handlers.FileInputHandler;
 import client.handlers.InputHandler;
-import jdk.internal.util.xml.impl.Input;
-import models.Address;
-import models.Coordinates;
-import models.Location;
-import models.OrganizationType;
-import models.exceptions.EndException;
-import models.exceptions.ReaderException;
+import other.MessageManager;
+import other.exceptions.ErrorType;
+import other.exceptions.WrongArgumentException;
+import other.models.*;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.util.ArrayList;
+import java.io.*;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Iterator;
 import java.util.Objects;
 
 
 public class AskIn {
-    private static boolean FRIEND_DETECTOR;
-    private static boolean friendlyInterface;
-    private static ArrayList<String> historyOfFiles = new ArrayList<String>();
+    private static MessageManager msg = new MessageManager();
 
-    public static boolean chooseFriendly() {
-        System.out.println("You хочешь friendly интерфейс? Yes or нет?");
-        ConsoleInputHandler cih = new ConsoleInputHandler();
-        String answer = cih.readInput().toLowerCase();
+    public void removeLastElement() {
+        MessageManager.getFileHistory().remove(
+                MessageManager.getFileHistory().size()-1
+        );
+    }
+
+    public Organization askInputManager(CommandType commandType, InputHandler in) throws WrongArgumentException{
+        Organization newOrg = new Organization();
         try {
-            if (answer.equals("да") || answer.equals("yes")){
-                FRIEND_DETECTOR = true;
-            } else if (answer.equals("нет") || answer.equals("no")) {
-                FRIEND_DETECTOR = false;
-            } else {
-                throw new IllegalArgumentException();
+            // итератор для перемещения по нужным для команды методам
+            Iterator<String> iterator = Arrays.stream(commandType.getCommandFields()).iterator();
+            if(iterator.hasNext()) {
+                // название нужного для запроса поля в массиве энама выбранной команды
+                String commandName = iterator.next();
+                // цикл foreach для полей newHuman
+                for (Field fields : newOrg.getClass().getDeclaredFields()) {
+                    // название нынешнего поля newHuman
+                    String fieldName = fields.getName().toLowerCase();
+                    // если поле массива энама команды совпадает с перебираемым полем экземпляра newHuman
+                    if (fieldName.equals(commandName.substring(3).toLowerCase())) {
+                        // беру ссылку на необходимый для запроса метод
+                        Method method = this.getClass().getDeclaredMethod(commandName, InputHandler.class);
+                        // ставлю разрешение на использование метода
+                        method.setAccessible(true);
+                        // вызываю нужный метод и получаю уже проверенное введенное значение
+                        Object o = method.invoke(this, in);
+                        // ставлю разрешение на изменение приватного поля newHuman
+                        fields.setAccessible(true);
+                        // изменяю значение приватного поля
+                        fields.set(newOrg, o);
+                        // перехожу к следующему необходимому для команды полю
+                        if(iterator.hasNext()) commandName = iterator.next();
+                        else break;
+                    }
+                }
+                if(Objects.equals(commandName, "askFileName")) {
+                    ReaderManager.turnOnFile(askFileName(in));
+                    throw new WrongArgumentException(ErrorType.SWITCH_READER);
+                }
             }
-        } catch (IllegalArgumentException e) {
-            System.err.println("Ваш ответ некорректный!");
-            chooseFriendly();
+        } catch (InvocationTargetException | NoSuchMethodException | IllegalAccessException e) {
+            // здесь считаю строки
+            throw new WrongArgumentException(ErrorType.IGNORE_STRING);
         }
-        return FRIEND_DETECTOR;
+        return newOrg;
     }
 
-    public static void turnOffFriendly() {
-        friendlyInterface = false;
-    }
-
-    public static void returnFriendly() {
-        friendlyInterface = FRIEND_DETECTOR;
-    }
 
     /**
      * Запрос команды
      */
-    public static String askCommand(InputHandler ih) throws EndException, ReaderException {
-        String command = null;
-        while (command == null) {
-            printMessageClass("Введите команду: ");
+    public CommandType askCommand(InputHandler ih) throws WrongArgumentException {
+        do {
+            msg.printMessage("команду");
             try {
-                command = ih.readInput();
-                CommandType.valueOf(command.toUpperCase()).ordinal();
-            } catch (IllegalArgumentException e) {
-                if (friendlyInterface && ih.getClass() == ConsoleInputHandler.class) {
-                    if (!command.isEmpty()) {
-                        System.err.println("Такой команды не существует!");
-                    } else {
-                        System.err.println("Ты ввел пустоту!");
-                    }
-                    command = null;
-                } else if (ih != ReaderManager.getHandler() && Objects.equals(command, "")) {
-                    throw new ReaderException("");
-                } else throw new EndException("Команды "+ command + " не существует!");
-            } catch (IOException e){
-                ReaderManager.returnOnPreviousReader();
-                throw new EndException("Невозможно прочитать данные из файла.\n");
+                return isCorrectCommand(ih.readInput());
+            } catch (IOException e) {
+                msg.printErrorMessageIO();
+            } catch (WrongArgumentException e) {
+                msg.printErrorMessage(e);
             }
-        }
-        return command;
+        } while (MessageManager.isFriendlyInterface());
+        throw new WrongArgumentException(ErrorType.IGNORE_COMMAND);
     }
 
     /**
      * Запрос id
      */
 
-    public Long askId(InputHandler ih) throws EndException {
-        String inputId = null;
-        while (inputId == null) {
-            printMessage("Введите id: ");
+    public Long askId(InputHandler ih) throws WrongArgumentException {
+        do {
+            msg.printMessage("id");
             try {
-                inputId = ih.readInput();
-                if (Integer.parseInt(inputId) <= 0) throw new NumberFormatException();
-            } catch (NumberFormatException e) {
-                if (friendlyInterface && ih.getClass() == ConsoleInputHandler.class) {
-                    if (!inputId.isEmpty()) {
-                        System.err.println("Некорректный ввод поля ID!");
-                    } else {
-                        System.err.println("Ты ввел пустоту!");
-                    }
-                    inputId = null;
-                } else {
-                    throw new EndException("Поле ID введено неверно. Команда будет проигнорирована.");
-                }
-            } catch (IOException e){
-                ReaderManager.returnOnPreviousReader();
-                throw new EndException("Невозможно прочитать данные из файла.\n");
-        }
-        }
-        return Long.parseLong(inputId);
+                return isCorrectLong(ih.readInput());
+            } catch (IOException e) {
+                msg.printErrorMessageIO();
+            } catch (WrongArgumentException e) {
+                msg.printErrorMessage(e);
+            }
+        } while (MessageManager.isFriendlyInterface());
+        throw new WrongArgumentException(ErrorType.IGNORE_STRING);
     }
 
     /**
      * Запрос name
      */
 
-    public String askName(InputHandler ih) throws EndException {
-        String inputName = null;
-        while (inputName == null) {
-            printMessage("Введите имя:");
+    public String askName(InputHandler ih) throws WrongArgumentException {
+        do {
+            msg.printMessage("имя");
             try {
-                inputName = ih.readInput();
-                if (inputName.isEmpty()) throw new IllegalArgumentException();
-            } catch (IllegalArgumentException e) {
-                if (friendlyInterface && ih.getClass() == ConsoleInputHandler.class) {
-                    System.err.println("Ты ввел пустоту!");
-                    inputName = null;
-                } else {
-                    throw new EndException("Некорректный ввод поля name. Команда будет проигнорирована!");
-                }
-            } catch (IOException e){
-                ReaderManager.returnOnPreviousReader();
-                throw new EndException("Невозможно прочитать данные из файла.\n");
+                return isCorrectString(ih.readInput());
+            } catch (IOException e) {
+                msg.printErrorMessageIO();
+            } catch (WrongArgumentException e) {
+                msg.printErrorMessage(e);
             }
-        }
-        return inputName;
+        } while (MessageManager.isFriendlyInterface());
+        throw new WrongArgumentException(ErrorType.IGNORE_STRING);
     }
 
     /**
      * Запрос coordinates
      */
 
-    public Coordinates askCoordinates(InputHandler ih) throws EndException {
-        printMessage("< < Введите координаты > >");
-        String inputCoordinates = null;
-
-        while (inputCoordinates == null) {
-            printMessage("Введите координату x: ");
-            try {
-                inputCoordinates = ih.readInput();
-                Double.parseDouble(inputCoordinates);
-            } catch (NumberFormatException e) {
-                if (friendlyInterface && ih.getClass() == ConsoleInputHandler.class) {
-                    if (!inputCoordinates.isEmpty()) {
-                        System.err.println("Некорректный ввод поля x!");
-                    } else {
-                        System.err.println("Ты ввел пустоту!");
-                    }
-                    inputCoordinates = null;
-                } else {
-                    throw new EndException("Некорректный ввод поля x. Команда будет проигнорирована!");
-                }
-            } catch (IOException e){
-                ReaderManager.returnOnPreviousReader();
-                throw new EndException("Невозможно прочитать данные из файла.\n");
-            }
-        }
-        Double x = Double.parseDouble(inputCoordinates);
-        inputCoordinates = null;
-
-        while (inputCoordinates == null) {
-            printMessage("Введите координату y: ");
-            try {
-                inputCoordinates = ih.readInput();
-                if(Long.parseLong(inputCoordinates) > 873) throw new NumberFormatException();
-            } catch (NumberFormatException e) {
-                if (friendlyInterface && ih.getClass() == ConsoleInputHandler.class) {
-                    if (!inputCoordinates.isEmpty()) {
-                        System.err.println("Некорректный ввод поля y! (y <= 873)");
-                    } else {
-                        System.err.println("Ты ввел пустоту!");
-                    }
-                    inputCoordinates = null;
-                } else {
-                    throw new EndException("Некорректный ввод поля y. Команда будет проигнорирована!");
-                }
-            } catch (IOException e){
-                ReaderManager.returnOnPreviousReader();
-                throw new EndException("Невозможно прочитать данные из файла.\n");
-            }
-        }
-        Long y = Long.parseLong(inputCoordinates);
-
-        return new Coordinates(x, y);
+    public Coordinates askCoordinates(InputHandler ih) throws WrongArgumentException {
+        msg.printMessage("местоположение");
+        return new Coordinates(askX(ih), askY(ih));
     }
 
+    private Double askX(InputHandler in) throws WrongArgumentException {
+        do {
+            msg.printMessage("координату x");
+            try {
+                return isCorrectDouble(in.readInput());
+            } catch(WrongArgumentException e) {
+                msg.printErrorMessage(e);
+            } catch (IOException e) {
+                msg.printErrorMessageIO();
+            }
+        } while(MessageManager.isFriendlyInterface());
+        throw new WrongArgumentException(ErrorType.IGNORE_STRING);
+    }
+
+    private Long askY(InputHandler in) throws WrongArgumentException {
+        do {
+            msg.printMessage("координату y");
+            try {
+                return isCorrectLong(in.readInput(), 873);
+            } catch(WrongArgumentException e) {
+                msg.printErrorMessage(e);
+            } catch (IOException e) {
+                msg.printErrorMessageIO();
+            }
+        }
+        while(MessageManager.isFriendlyInterface());
+        throw new WrongArgumentException(ErrorType.IGNORE_STRING);
+    }
 
     /**
      * Запрос annualTurnover
      */
 
-    public Float askAnnualTurnover(InputHandler ih) throws EndException{
-        String inputAnnualTurnover = null;
-        while (inputAnnualTurnover == null) {
-            printMessage("Введите годовой оборот: ");
+    public Float askAnnualTurnover(InputHandler ih) throws WrongArgumentException {
+        do {
+            msg.printMessage("годовой оборот");
             try {
-                inputAnnualTurnover = ih.readInput();
-                if (Float.parseFloat(inputAnnualTurnover)<=0) throw new NumberFormatException();
-            } catch (NumberFormatException e) {
-                if (friendlyInterface && ih.getClass() == ConsoleInputHandler.class) {
-                    if (!inputAnnualTurnover.isEmpty()) {
-                        System.err.println("Некорректный ввод поля annualTurnover!");
-                    } else {
-                        System.err.println("Ты ввел пустоту!");
-                    }
-                    inputAnnualTurnover = null;
-                } else {
-                    throw new EndException("Некорректный ввод поля annualTurnover. Команда будет проигнорирована!");
-                }
-            } catch (IOException e){
-                ReaderManager.returnOnPreviousReader();
-                throw new EndException("Невозможно прочитать данные из файла.\n");
+                return isCorrectFloat(ih.readInput());
+            } catch(WrongArgumentException e) {
+                msg.printErrorMessage(e);
+            } catch (IOException e) {
+                msg.printErrorMessageIO();
             }
         }
-        return Float.parseFloat(inputAnnualTurnover);
+        while(MessageManager.isFriendlyInterface());
+        throw new WrongArgumentException(ErrorType.IGNORE_STRING);
     }
 
     /**
      * Запрос fullName
      */
 
-    public String askFullName(InputHandler ih) throws EndException{
-        String inputFullName = null;
-        while (inputFullName == null) {
-            printMessage("Введите полное имя: ");
+    public String askFullName(InputHandler ih) throws WrongArgumentException {
+        do {
+            msg.printMessage("полное имя");
             try {
-                inputFullName = ih.readInput();
-                if (inputFullName.isEmpty() || inputFullName.length()>1637) throw new IllegalArgumentException();
-            } catch (IllegalArgumentException e) {
-                if (friendlyInterface && ih.getClass() == ConsoleInputHandler.class) {
-                    if (!inputFullName.isEmpty()) {
-                        System.err.println("Некорректный ввод поля fullName!");
-                    } else {
-                        System.err.println("Ты ввел пустоту! Поэтому поле примет значение null >:)");
-                        return null;
-                    }
-                    inputFullName = null;
-                } else {
-                    throw new EndException("Некорректный ввод поля fullName. Команда будет проигнорирована!");
-                }
-            } catch (IOException e){
-                ReaderManager.returnOnPreviousReader();
-                throw new EndException("Невозможно прочитать данные из файла.\n");
+                String input = ih.readInput();
+                if(input.isEmpty()) {
+                    msg.printWarningMessage();
+                    return null;
+                } return input;
+            } catch (IOException e) {
+                msg.printErrorMessageIO();
             }
-        }
-        return inputFullName;
+        } while(MessageManager.isFriendlyInterface());
+        throw new WrongArgumentException(ErrorType.IGNORE_STRING);
     }
 
     /**
      * Запрос employeesCount
      */
 
-    public Integer askEmployeesCount(InputHandler ih) throws EndException{
-        String inputEmployeesCount = null;
-        while (inputEmployeesCount == null) {
-            printMessage("Введите количество сотрудников: ");
+    public Integer askEmployeesCount(InputHandler ih) throws WrongArgumentException {
+        do {
+            msg.printMessage("количество сотрудников");
             try {
-                inputEmployeesCount = ih.readInput();
-                if (Integer.parseInt(inputEmployeesCount)<=0) throw new NumberFormatException();
-            } catch (NumberFormatException e) {
-                if (friendlyInterface && ih.getClass() == ConsoleInputHandler.class) {
-                    if (!inputEmployeesCount.isEmpty()) {
-                        System.err.println("Некорректный ввод поля employeesCount!");
-                    } else {
-                        System.err.println("Ты ввел пустоту!");
-                    }
-                    inputEmployeesCount = null;
-                } else {
-                    throw new EndException("Некорректный ввод поля employeesCount. Команда будет проигнорирована!");
-                }
-            }catch (IOException e){
-                ReaderManager.returnOnPreviousReader();
-                throw new EndException("Невозможно прочитать данные из файла.\n");
+                return isCorrectInteger(ih.readInput());
+            } catch (WrongArgumentException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                msg.printErrorMessageIO();
             }
-        }
-        return Integer.parseInt(inputEmployeesCount);
+        }while(MessageManager.isFriendlyInterface());
+        throw new WrongArgumentException(ErrorType.IGNORE_STRING);
     }
 
     /**
      * Запрос type
      */
 
-    public OrganizationType askType(InputHandler ih) throws EndException{
-        String inputOrgType = null;
-        while (inputOrgType == null) {
-            printMessage("Введите тип организации: ");
+    public OrganizationType askType(InputHandler ih) throws WrongArgumentException {
+        do {
+            msg.printMessage("тип организации");
             try {
-                inputOrgType = ih.readInput();
-                OrganizationType.valueOf(inputOrgType.toUpperCase());
-            } catch (IllegalArgumentException e) {
-                if (friendlyInterface && ih.getClass() == ConsoleInputHandler.class) {
-                    if (!inputOrgType.isEmpty()) {
-                        System.err.println("Некорректный ввод поля type!");
-                    } else {
-                        System.err.println("Ты ввел пустоту!");
-                    }
-                    inputOrgType = null;
-                } else {
-                    throw new EndException("Некорректный ввод поля type. Команда будет проигнорирована!");
-                }
-            } catch (IOException e){
-                ReaderManager.returnOnPreviousReader();
-                throw new EndException("Невозможно прочитать данные из файла.\n");
+                return isCorrectType(ih.readInput());
+            } catch (WrongArgumentException e) {
+                msg.printErrorMessage(e);
+            } catch (IOException e) {
+                msg.printErrorMessageIO();
             }
         }
-        return OrganizationType.valueOf(inputOrgType.toUpperCase());
+        while (MessageManager.isFriendlyInterface());
+        throw new WrongArgumentException(ErrorType.IGNORE_STRING);
     }
 
     /**
      * Запрос postalAddress
      */
-
-    public Address askPostalAddress(InputHandler ih) throws EndException{
-        printMessage("< < Введите адрес организации > >");
-        String inputPostalAddress = null;
-        String street;
-        while (inputPostalAddress == null) {
-            printMessage("Введите улицу: ");
+    private Float askYFloat(InputHandler in) throws WrongArgumentException {
+        do {
+            msg.printMessage("координату y");
             try {
-                inputPostalAddress = ih.readInput();
-                if (inputPostalAddress.isEmpty()) throw new IllegalArgumentException();
-            } catch (IllegalArgumentException e) {
-                if (friendlyInterface && ih.getClass() == ConsoleInputHandler.class) {
-                    if (!inputPostalAddress.isEmpty()) {
-                        System.err.println("Некорректный ввод поля postalAddress!");
-                    } else {
-                        System.err.println("Ты ввел пустое поле!");
-                    }
-                    inputPostalAddress = null;
-                } else{
-                    throw new EndException("Некорректный ввод поля postalAddress. Команда будет проигнорирована!");
-                }
-            } catch (IOException e){
-                ReaderManager.returnOnPreviousReader();
-                throw new EndException("Невозможно прочитать данные из файла.\n");
+                return isCorrectFloat(in.readInput());
+            } catch(WrongArgumentException e) {
+                msg.printErrorMessage(e);
+            } catch (IOException e) {
+                msg.printErrorMessageIO();
             }
         }
-        street = inputPostalAddress;
-        inputPostalAddress = null;
-
-        printMessage("< < Введите местоположение города > >");
-        while (inputPostalAddress == null) {
-            printMessage("Введите координату x: ");
-            try {
-                inputPostalAddress = ih.readInput();
-                Double.parseDouble(inputPostalAddress);
-            } catch (NumberFormatException e) {
-                if (friendlyInterface && ih.getClass() == ConsoleInputHandler.class) {
-                    if (!inputPostalAddress.isEmpty()) {
-                        System.err.println("Некорректный ввод поля x!");
-                    } else {
-                        System.err.println("Ты ввел пустоту!");
-                    }
-                    inputPostalAddress = null;
-                } else {
-                    throw new EndException("Некорректный ввод поля x. Команда будет проигнорирована!");
-                }
-            } catch (IOException e){
-                ReaderManager.returnOnPreviousReader();
-                throw new EndException("Невозможно прочитать данные из файла.\n");
-            }
-        }
-        Double x = Double.parseDouble(inputPostalAddress);
-        inputPostalAddress = null;
-
-        while (inputPostalAddress==null){
-            printMessage("Введите координату y: ");
-            try {
-                inputPostalAddress = ih.readInput();
-                Float.parseFloat(inputPostalAddress);
-            } catch (NumberFormatException e) {
-                if (friendlyInterface && ih.getClass() == ConsoleInputHandler.class) {
-                    if (!inputPostalAddress.isEmpty()) {
-                        System.err.println("Некорректный ввод поля y!");
-                    } else {
-                        System.err.println("Ты ввел пустоту!");
-                    }
-                    inputPostalAddress = null;
-                } else {
-                    throw new EndException("Некорректный ввод поля y. Команда будет проигнорирована!");
-                }
-            } catch (IOException e){
-                ReaderManager.returnOnPreviousReader();
-                throw new EndException("Невозможно прочитать данные из файла.\n");
-            }
-        }
-        Float y = Float.parseFloat(inputPostalAddress);
-        inputPostalAddress = null;
-
-        while (inputPostalAddress==null){
-            printMessage("Введите координату z: ");
-            try {
-                inputPostalAddress = ih.readInput();
-                Long.parseLong(inputPostalAddress);
-            } catch (NumberFormatException e) {
-                if (friendlyInterface && ih.getClass() == ConsoleInputHandler.class) {
-                    if (!inputPostalAddress.isEmpty()) {
-                        System.err.println("Некорректный ввод поля z!\n");
-                    } else {
-                        System.err.println("Ты ввел пустоту!");
-                    }
-                    inputPostalAddress = null;
-                } else {
-                    throw new EndException("Некорректный ввод поля z. Команда будет проигнорирована!");
-                }
-            } catch (IOException e){
-                ReaderManager.returnOnPreviousReader();
-                throw new EndException("Невозможно прочитать данные из файла.\n");
-            }
-            }
-        Long z = Long.parseLong(inputPostalAddress);
-        inputPostalAddress = null;
-
-        while (inputPostalAddress==null){
-            printMessage("Введите название локации: ");
-            try {
-                inputPostalAddress = ih.readInput();
-            } catch (IllegalArgumentException e) {
-                if (friendlyInterface && ih.getClass() == ConsoleInputHandler.class) {
-                    if (!inputPostalAddress.isEmpty()) {
-                        System.err.println("Некорректный ввод поля name!");
-                    } else {
-                        System.err.println("Ты ввел пустоту!");
-                    }
-                    inputPostalAddress = null;
-                } else {
-                    throw new EndException("Некорректный ввод поля name. Команда будет проигнорирована!");
-                }
-            } catch (IOException e){
-                ReaderManager.returnOnPreviousReader();
-                throw new EndException("Невозможно прочитать данные из файла.\n");
-            }
-        }
-        String name = inputPostalAddress;
-        Location town = new Location(x, y, z, name);
-
-        return new Address(street, town);
+        while(MessageManager.isFriendlyInterface());
+        throw new WrongArgumentException(ErrorType.IGNORE_STRING);
     }
 
-    public FileInputStream askFileName(InputHandler ih) throws EndException{
-        FileInputStream fileInput = null;
-        while (fileInput == null) {
-            printMessage("Введите путь до файла: ");
+    private Double askXDouble(InputHandler in) throws WrongArgumentException {
+        do {
+            msg.printMessage("координату x");
+            try {
+                return isCorrectDouble(in.readInput());
+            } catch(WrongArgumentException e) {
+                msg.printErrorMessage(e);
+            } catch (IOException e) {
+                msg.printErrorMessageIO();
+            }
+        }
+        while(MessageManager.isFriendlyInterface());
+        throw new WrongArgumentException(ErrorType.IGNORE_STRING);
+    }
+
+    private Long askZLong(InputHandler in) throws WrongArgumentException {
+        do {
+            msg.printMessage("координату z");
+            try {
+                return isCorrectLong(in.readInput());
+            } catch(WrongArgumentException e) {
+                msg.printErrorMessage(e);
+            } catch (IOException e) {
+                msg.printErrorMessageIO();
+            }
+        }
+        while(MessageManager.isFriendlyInterface());
+        throw new WrongArgumentException(ErrorType.IGNORE_STRING);
+    }
+
+    private String askNameForAddress(InputHandler ih) throws WrongArgumentException {
+        do {
+            msg.printMessage("название");
+            try {
+                return isCorrectString(ih.readInput());
+            } catch(WrongArgumentException e) {
+                msg.printErrorMessage(e);
+            } catch (IOException e) {
+                msg.printErrorMessageIO();
+            }
+        }
+        while(MessageManager.isFriendlyInterface());
+        throw new WrongArgumentException(ErrorType.IGNORE_STRING);
+    }
+
+
+    private String askStreet(InputHandler in) throws WrongArgumentException{
+        do {
+            msg.printMessage("улицу");
+            try {
+                return isCorrectString(in.readInput());
+            } catch (IOException e) {
+                msg.printErrorMessageIO();
+            } catch (WrongArgumentException e){
+                msg.printErrorMessage(e);
+            }
+        } while(MessageManager.isFriendlyInterface());
+        throw new WrongArgumentException(ErrorType.IGNORE_STRING);
+    }
+
+    public Address askPostalAddress(InputHandler ih) throws WrongArgumentException {
+        msg.printMessage("местоположение");
+        return new Address(askStreet(ih), new Location(askXDouble(ih), askYFloat(ih), askZLong(ih),askStreet(ih)));
+    }
+
+    public BufferedReader askFileName(InputHandler ih) throws WrongArgumentException {
+        do{
+            msg.printMessage("путь до файла");
             try {
                 String fileName = ih.readInput();
-                fileInput = new FileInputStream(fileName);
-                if(historyOfFiles.contains(fileName)) {
-                    throw new EndException("Этот файл уже был вызван ранее.\n");
-                } else {
-                    historyOfFiles.add(fileName);
-                }
-            } catch (FileNotFoundException e) {
-                if(friendlyInterface && ih.getClass() == ConsoleInputHandler.class) {
-                    System.err.println("Файл не найден. Проверьте корректность указанного пути и повторите попытку!");
-                    fileInput = null;
-                } else {
-                    throw new EndException("Файл не найден. Команда будет проигнорирована.\n");
-                }
-            } catch (IOException e){
-                ReaderManager.returnOnPreviousReader();
-                throw new EndException("Невозможно прочитать данные из файла.\n");
+                BufferedReader reader = new BufferedReader(isCorrectFile(fileName));
+                MessageManager.getFileHistory().add(fileName);
+                return reader;
+            } catch (IOException e) {
+                msg.printErrorMessageIO();
+            } catch (WrongArgumentException e) {
+                msg.printErrorMessage(e);
             }
-        }
-        return fileInput;
+        }while(MessageManager.isFriendlyInterface());
+        throw new WrongArgumentException(ErrorType.IGNORE_STRING);
     }
 
-    private static void printMessage(String message){
-        if (friendlyInterface) {
-            System.out.println(message);
+
+    private String isCorrectString(String input) throws WrongArgumentException {
+        if(input.isEmpty()) throw new WrongArgumentException(ErrorType.EMPTY);
+        return input;
+    }
+
+    /**
+     * Функция для проверки валидности введённого целочисленного значения
+     * @param input - строка, введённая пользователем
+     * @return если строка валидна - возращает целое число, иначе выбрасывает следующее исключение
+     */
+    private Integer isCorrectInteger(String input) throws WrongArgumentException {
+        try {
+            Integer.parseInt(input);
+        } catch (IllegalArgumentException e) {
+            if(input.isEmpty()) throw new WrongArgumentException(ErrorType.EMPTY);
+            else throw new WrongArgumentException(ErrorType.WRONG_TYPE);
+        }
+        return Integer.parseInt(input);
+    }
+
+    private Double isCorrectDouble(String input) throws WrongArgumentException {
+        try {
+            Double.parseDouble(input);
+        } catch (IllegalArgumentException e) {
+            if(input.isEmpty()) throw new WrongArgumentException(ErrorType.EMPTY);
+            else throw new WrongArgumentException(ErrorType.WRONG_TYPE);
+        }
+        return Double.parseDouble(input);
+    }
+
+    /**
+     * Функция для проверки валидности введённого целого числа с установкой нижней границы
+     * @param input - строка, введённая пользователем
+     * @param last - граница для данного поля
+     * @return если строка валидна - возращает целое число, иначе выбрасывает следующее исключение
+     */
+    private Long isCorrectLong(String input, int last) throws WrongArgumentException {
+        try {
+            if (Integer.parseInt(input) > last) {
+                throw new WrongArgumentException(ErrorType.OUT_OF_RANGE);
+            }
+        } catch (IllegalArgumentException e) {
+            if(input.isEmpty()) throw new WrongArgumentException(ErrorType.EMPTY);
+            else throw new WrongArgumentException(ErrorType.WRONG_TYPE);
+        }
+        return Long.parseLong(input);
+    }
+
+    private Long isCorrectLong(String input) throws WrongArgumentException {
+        try {
+            Long.parseLong(input);
+        } catch (IllegalArgumentException e) {
+            if(input.isEmpty()) throw new WrongArgumentException(ErrorType.EMPTY);
+            else throw new WrongArgumentException(ErrorType.WRONG_TYPE);
+        }
+        return Long.parseLong(input);
+    }
+
+    /**
+     * Функция для проверки валидности введённого дробного числа с установкой нижней границы
+     * @param input - строка, введённая пользователем
+     * @param last - граница для данного поля
+     * @return если строка валидна - возращает целое число, иначе выбрасывает следующее исключение
+     */
+    private Float isCorrectFloat(String input, int last) throws WrongArgumentException {
+        try {
+            if (Float.parseFloat(input) > last) {
+                throw new WrongArgumentException(ErrorType.OUT_OF_RANGE);
+            }
+        } catch (IllegalArgumentException e) {
+            if(input.isEmpty()) throw new WrongArgumentException(ErrorType.EMPTY);
+            else throw new WrongArgumentException(ErrorType.WRONG_TYPE);
+        }
+        return Float.parseFloat(input);
+    }
+
+    private Float isCorrectFloat(String input) throws WrongArgumentException {
+        try {
+            Float.parseFloat(input);
+        } catch (IllegalArgumentException e) {
+            if(input.isEmpty()) throw new WrongArgumentException(ErrorType.EMPTY);
+            else throw new WrongArgumentException(ErrorType.WRONG_TYPE);
+        }
+        return Float.parseFloat(input);
+    }
+
+    private CommandType isCorrectCommand(String input) throws WrongArgumentException {
+        try {
+            return CommandType.valueOf(input.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            if(input.isEmpty()) throw new WrongArgumentException(ErrorType.EMPTY);
+            throw new WrongArgumentException(ErrorType.UNKNOWN);
         }
     }
-    public static void printMessageClass(String message){
-        if (friendlyInterface && ReaderManager.getHandler().getClass() == ConsoleInputHandler.class) {
-            System.out.println(message);
+
+    private OrganizationType isCorrectType(String input) throws WrongArgumentException {
+        try {
+            return OrganizationType.valueOf(input.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            if(input.isEmpty()) throw new WrongArgumentException(ErrorType.EMPTY);
+            else throw new WrongArgumentException(ErrorType.UNKNOWN);
+        }
+    }
+
+    private FileReader isCorrectFile(String input) throws WrongArgumentException{
+        try {
+            if(MessageManager.getFileHistory().contains(input)) {
+                throw new WrongArgumentException(ErrorType.ALREADY_EXECUTED);
+            }
+            return new FileReader(input);
+        } catch (FileNotFoundException e) {
+            throw new WrongArgumentException(ErrorType.NOT_FOUND);
         }
     }
     }
