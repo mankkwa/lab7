@@ -16,6 +16,10 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class Server {
     private ServerSocketChannel serverSocketChannel;
@@ -25,10 +29,21 @@ public class Server {
     private boolean work = true;
     private Response response;
     private HandleCommands commandManager = new HandleCommands();
+    private ExecutorService readThreadPool;
+    private ForkJoinPool processThreadPool;
+    private ForkJoinPool sendThreadPool;
+    private Request request;
+
 
     public Server(String host, int port) {
         this.address = new InetSocketAddress(host, port);
         this.session = new HashSet<SocketChannel>();
+        // Используем кэшированный пул потоков для чтения запросов
+        this.readThreadPool = Executors.newCachedThreadPool();
+        // Используем ForkJoinPool для обработки запросов
+        this.processThreadPool = new ForkJoinPool();
+        // Используем ForkJoinPool для отправки ответов
+        this.sendThreadPool = new ForkJoinPool();
     }
 
     public void start() throws IOException {
@@ -39,7 +54,6 @@ public class Server {
                 selector.select();
                 //итератор для обхода зарегистрированных ключей в селекторе
                 Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
-                Request request;
                 while (keys.hasNext()) {
                     SelectionKey key = keys.next();
                     keys.remove();
@@ -50,22 +64,15 @@ public class Server {
                         accept(key);
                     } else if (key.isReadable()) {
                         //получение реквеста от клиента
-                        try {
-                            request = read(key);
-                        } catch (WrongArgumentException e) {
-                            key.cancel();
-                            continue;
-                        }
-                        //обработка реквеста
-                        if (request == null) {
-                            key.cancel();
-                        } else if (!request.getCommand().equals(CommandType.EXIT)) {
-                            write(key, commandManager.handleRequest(request));
-                        } else {
-                            response = new Response(Response.Status.SERVER_EXIT, "Сервер завершает свою работу.");
-                            commandManager.exit();
-                            work = false;
-                        }
+                        readThreadPool.submit(() -> {
+                                    try {
+                                        request = read(key);
+                                        processThreadPool.submit(() -> processRequest(key, request));
+                                    } catch (WrongArgumentException e) {
+                                        // Handle WrongArgumentException
+                                        e.printStackTrace();
+                                    }
+                        });
                     }
                 }
             }
@@ -74,6 +81,19 @@ public class Server {
             ServerLauncher.log.error("Сервер завершает свою работу... :(");
             }
         }
+
+    private void processRequest(SelectionKey key, Request request) {
+        if (request == null) {
+            key.cancel();
+        } else if (!request.getCommand().equals(CommandType.EXIT)) {
+            // Используем ForkJoinPool для отправки ответов
+            sendThreadPool.submit(() -> write(key, commandManager.handleRequest(request)));
+        } else {
+            response = new Response(Response.Status.SERVER_EXIT, "Сервер завершает свою работу.");
+            commandManager.exit();
+            work = false;
+        }
+    }
 
     private boolean openSocket(){
         try {
