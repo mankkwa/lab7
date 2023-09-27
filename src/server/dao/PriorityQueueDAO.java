@@ -9,7 +9,7 @@ import java.time.ZonedDateTime;
 import java.util.*;
 
 public final class PriorityQueueDAO implements DAO {
-    private PriorityQueue<Organization> collection = new PriorityQueue<>();
+    private PriorityQueue<Organization> collection;
     private static Long availableId = 0L;
     private static PriorityQueueDAO pqd;
     private ZonedDateTime initDate;
@@ -25,12 +25,14 @@ public final class PriorityQueueDAO implements DAO {
         return initDate;
     }
 
+    public void setCollection(PriorityQueue<Organization> organizations) {
+        collection = organizations;
+    }
+
     @Override
     public Long add(Organization organization){
         collection.add(organization);
-        organization.setId(availableId);
-        organization.setCreationDate(ZonedDateTime.now());
-        return availableId++;
+        return organization.getId();
     }
 
     public void setAvailableId(){
@@ -53,8 +55,8 @@ public final class PriorityQueueDAO implements DAO {
     }
 
     @Override
-    public void update(Long id, Organization updOrganization) {
-        Organization thatOrganization = get(id);
+    public boolean update(Organization updOrganization) {
+        Organization thatOrganization = get(updOrganization.getId());
         if (thatOrganization != null) {
             thatOrganization.setName(updOrganization.getName());
             thatOrganization.setCoordinates(updOrganization.getCoordinates());
@@ -64,45 +66,44 @@ public final class PriorityQueueDAO implements DAO {
             thatOrganization.setEmployeesCount(updOrganization.getEmployeesCount());
             thatOrganization.setType(updOrganization.getType());
             thatOrganization.setPostalAddress(updOrganization.getPostalAddress());
+            return true;
         }
+        return false;
     }
 
     @Override
-    public void remove(Long id) {
+    public boolean remove(Long id) {
         Organization thatOrganization = get(id);
         if (thatOrganization != null){
             collection.remove(thatOrganization);
+            return true;
         }
+        return false;
     }
 
-    @Override
     public void clear() {
+        if(collection == null) return;
         collection.clear();
     }
 
-    @Override
     public Organization get(Long id) {
-        return collection.stream().filter(humanBeing -> humanBeing.getId() == id).findFirst().orElse(null);
+        return collection.stream().filter(organization -> Objects.equals(organization.getId(), id)).findFirst().orElse(null);
     }
 
-    @Override
     public Collection<Organization> getAll() {
         return collection;
     }
 
-    @Override
     public int size() {
         return collection.size();
     }
 
 
-    @Override
     public String show() {
         if (collection.isEmpty()) return null;
         return collection.stream().reduce("", (sum, m) -> sum += m + "\n\n", (sum1, sum2) -> sum1 + sum2).trim();
     }
-
-    @Override
+/*
     public void sort(){
         Organization[] organizations = collection.toArray(new Organization[0]);
         Arrays.sort(organizations, new OrganizationComparator());
@@ -110,7 +111,8 @@ public final class PriorityQueueDAO implements DAO {
         collection.addAll(Arrays.asList(organizations));
     }
 
-    @Override
+ */
+
     public void save() {
         FileManager.writeCollection(collection);
     }
